@@ -102,9 +102,23 @@ const dossierPath = join(out, 'dossier.json');
 writeFileSync(dossierPath, buildDossier(out, { text_max_bytes: TEXT_MAX_BYTES, screenshots: SCREENSHOT_CAPS, dashboard: { max_files: 400, max_bytes: 4_194_304 } }));
 const dossierBytes = statSync(dossierPath).size;
 const boardBytes = statSync(join(out, 'board.json')).size;
+const dataBytes = statSync(join(out, 'data.js')).size;
+
+// Self-check before reporting success: the dossier must parse, and the board
+// written to disk must hold exactly the rows the model scored.
+const dossierParsed = JSON.parse(readFileSync(dossierPath, 'utf8'));
+if (typeof dossierParsed !== 'object' || dossierParsed === null) {
+  process.stderr.write('token radar: the dossier did not parse back as JSON\n');
+  process.exit(1);
+}
+const boardOnDisk = JSON.parse(readFileSync(join(out, 'board.json'), 'utf8'));
+if (!Array.isArray(boardOnDisk.rows) || boardOnDisk.rows.length !== board.length) {
+  process.stderr.write(`token radar: board.json on disk holds ${Array.isArray(boardOnDisk.rows) ? boardOnDisk.rows.length : 'no'} rows, expected ${board.length}\n`);
+  process.exit(1);
+}
 
 process.stdout.write(
   `token radar: ${snapshot.protocols.length} protocols, ${snapshot.watchlist.length} on the watchlist, ${board.length} rows scored (${radar.early_size} early, ${radar.live_size} live set aside)\n` +
     `token radar: rank 1 ${board[0]!.name} at ${fmtUsd(board[0]!.implied_value_usd)}, rank ${board.length} at ${fmtUsd(board[board.length - 1]!.implied_value_usd)}\n` +
-    `token radar: wrote ${join(out, 'board.json')} (${boardBytes} bytes), ${join(out, 'data.js')}, ${join(out, 'dashboard')} (${dash.length} files), ${join(out, 'screenshots')} (${shots.length} images) and ${dossierPath} (${dossierBytes} bytes)\n`,
+    `token radar: wrote ${join(out, 'board.json')} (${boardBytes} bytes), ${join(out, 'data.js')} (${dataBytes} bytes), ${join(out, 'dashboard')} (${dash.length} files), ${join(out, 'screenshots')} (${shots.length} images) and ${dossierPath} (${dossierBytes} bytes)\n`,
 );
